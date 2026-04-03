@@ -126,9 +126,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const searchInput = document.getElementById('searchInput');
     let sortableInstance = null;
     let isEditingDB = false;
+    let isLoading = false;
 
     // Loading data from Supabase
     async function loadData() {
+        if (isLoading) return;
+        isLoading = true;
+
         const { data, error } = await supabase
             .from('priorities')
             .select('*')
@@ -136,18 +140,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (error || !data) {
             console.error('Erro ao buscar dados do Supabase ou Tabela Vazia. Verifique a criacao da tabela: setup.sql');
-            
-            // Local fallback se a tabela der erro fatal ou não existir
             priorities = defaultData.map((d, i) => ({ ...d, id: null, order_index: i }));
-            
-            // Joga os marcados para cima visualmente
             priorities.sort((a,b) => (a.checked === b.checked) ? 0 : a.checked ? -1 : 1);
             
         } else if (data.length === 0) {
             console.log("Banco de dados Supabase vazio! Sincronizando modelo padrao...");
+            isEditingDB = true; // Previne websockets de atrapalhar
             listEl.innerHTML = '<li class="list-item" style="justify-content:center;">Inicializando banco de dados pela primeira vez... aguarde.</li>';
             
-            // Pede que ordenemos os Checked primeiro
             let initialPayload = defaultData.map((d) => ({ ...d }));
             initialPayload.sort((a,b) => (a.checked === b.checked) ? 0 : a.checked ? -1 : 1);
             
@@ -169,12 +169,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.error("Erro ao popular tabela:", insError);
                 priorities = insertPayload;
             }
+            setTimeout(() => { isEditingDB = false; }, 2000); // Aguarda ecos e limpa lock
         } else {
-            // Already has data from Supabase!
             priorities = data;
             
-            // Migration para o item 105 ou outros se o DB ja existir mas estiver incompleto
-            if (data.length < defaultData.length) {
+            if (data.length > 0 && data.length < defaultData.length) {
+                isEditingDB = true;
                 const diff = defaultData.length - data.length;
                 const newItems = defaultData.slice(-diff).map((item, idx) => ({
                     name: item.name,
@@ -183,9 +183,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }));
                 const { data: inserted, error: e } = await supabase.from('priorities').insert(newItems).select();
                 if (!e && inserted) priorities.push(...inserted);
+                setTimeout(() => { isEditingDB = false; }, 2000);
             }
         }
         renderList();
+        isLoading = false;
     }
 
     // Debounce to prevent unnecessary saves
@@ -319,14 +321,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderList(e.target.value);
     });
 
+    const debouncedRemoteLoad = debounce(() => {
+        if (!isEditingDB) {
+            console.log('Atualizando lista...');
+            loadData();
+        }
+    }, 1500);
+
     // Subscrição do Tempo Real
     supabase
         .channel('public:priorities')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'priorities' }, (payload) => {
             // Se outra pessoa atualizar (não fomos nós)
             if (!isEditingDB) {
-                console.log('Detectado mudança no servidor, atualizando...');
-                loadData();
+                console.log('Detectado mudança no servidor, agendando atualização...');
+                debouncedRemoteLoad();
             }
         })
         .subscribe();
