@@ -210,8 +210,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         isEditingDB = true;
         
         // Supabase REST client doesn't support generic batch upsert nicely with varied data unless using RPC
-        // Since list is only 105 elements, we can do multiple small async requests or a full delete/insert
-        // The safest update without losing IDs is a big UPSERT
+        // Since list is only 105 elements, we can do multiple small async requests ou usar upsert passsando os Ids
         const payloadToUpsert = priorities.map((p, index) => ({
             id: p.id,
             name: p.name,
