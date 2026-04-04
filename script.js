@@ -98,6 +98,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="item-content">
                     <input type="text" class="item-input ${checkedClass}" value="${safeValue}" data-index="${index}">
                 </div>
+                <button class="delete-btn" data-index="${index}" title="Excluir este perfil">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
             `;
             listEl.appendChild(li);
         });
@@ -114,6 +117,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                 priorities[idx].checked = e.target.checked;
                 saveItem(priorities[idx].id, { checked: e.target.checked });
                 renderList(searchInput.value);
+            });
+        });
+
+        // Botão deletar
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const idx = parseInt(btn.getAttribute('data-index'), 10);
+                const item = priorities[idx];
+                if (!confirm(`Excluir "${item.name}"?`)) return;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                const { error } = await supabase.from('priorities').delete().eq('id', item.id);
+                if (!error) {
+                    priorities.splice(idx, 1);
+                    renderList(searchInput.value);
+                } else {
+                    console.error('Erro ao deletar:', error);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                }
             });
         });
 
