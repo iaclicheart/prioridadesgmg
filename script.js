@@ -160,6 +160,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderList(e.target.value);
     });
 
+    // Adicionar novo perfil
+    const newProfileInput = document.getElementById('newProfileInput');
+    const addProfileBtn = document.getElementById('addProfileBtn');
+
+    async function addNewProfile() {
+        const name = newProfileInput.value.trim();
+        if (!name) return;
+
+        addProfileBtn.disabled = true;
+        addProfileBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+
+        const newOrderIndex = priorities.length;
+        const { data, error } = await supabase
+            .from('priorities')
+            .insert([{ name, checked: false, order_index: newOrderIndex }])
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Erro ao adicionar perfil:', error);
+            addProfileBtn.innerHTML = '<i class="fas fa-exclamation-circle"></i> Erro!';
+            setTimeout(() => {
+                addProfileBtn.disabled = false;
+                addProfileBtn.innerHTML = '<i class="fas fa-plus"></i> Adicionar';
+            }, 2000);
+        } else {
+            priorities.push(data);
+            newProfileInput.value = '';
+            renderList(searchInput.value);
+            addProfileBtn.disabled = false;
+            addProfileBtn.innerHTML = '<i class="fas fa-plus"></i> Adicionar';
+            // Rola para o final para mostrar o novo item
+            listEl.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    addProfileBtn.addEventListener('click', addNewProfile);
+    newProfileInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') addNewProfile();
+    });
+
     // Tempo Real — debounced para evitar recargas em cascata
     const debouncedRemoteLoad = debounce(() => {
         if (!isEditingDB) {
