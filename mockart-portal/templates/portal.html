@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Workflow - Mockart Premedia</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23d94291' rx='20'/></svg>">
+    
+    <link rel="stylesheet" href="/static/style.css?v=3">
+    <style>
+        .portal-layout {
+            padding: 8rem 2rem 4rem;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .portal-box {
+            background: var(--glass-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3rem;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 2;
+            backdrop-filter: blur(10px);
+        }
+        .portal-box h2 {
+            margin-bottom: 2rem;
+            text-align: center;
+            font-size: 2rem;
+            color: var(--text-main);
+        }
+        .dropzone {
+            border: 2px dashed var(--purple);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(139, 92, 246, 0.05);
+            margin-bottom: 1.5rem;
+        }
+        .dropzone:hover, .dropzone.active {
+            background: rgba(139, 92, 246, 0.15);
+            border-color: var(--blue);
+        }
+        #file-info {
+            margin-top: 10px;
+            font-weight: bold;
+            color: var(--blue);
+        }
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            display: none;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--gradient-brand);
+            transition: width 0.4s;
+        }
+        .log-box {
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            margin-top: 1.5rem;
+            display: none;
+            color: #10b981;
+        }
+    </style>
+</head>
+<body>
+    
+    <nav class="navbar" style="position: absolute;">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <img src="/static/mockart_logo_v2.png" alt="Mockart Premedia" class="nav-logo" id="main-logo">
+            </a>
+            <button id="theme-toggle" class="btn" style="padding: 0.5rem 1rem;">Mudar Tema</button>
+        </div>
+    </nav>
+
+    <!-- Aurora Background -->
+    <div class="aurora-bg">
+        <div id="particles-js" style="position: absolute; width: 100vw; height: 100vh; z-index: 1;"></div>
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2"></div>
+        <div class="aurora-blob blob-3"></div>
+    </div>
+    
+    <main class="portal-layout">
+        <div class="portal-box">
+            <h2>Criar Fluxo de O.S Integrada</h2>
+            
+            <form id="os-form">
+                <div class="form-group">
+                    <label>Cliente / Agência</label>
+                    <input type="text" id="client_name" name="client_name" required placeholder="Ex: Clicheart Embalagens">
+                </div>
+                
+                <div class="form-group">
+                    <label>Job Ticket / Número do Pedido</label>
+                    <input type="text" id="job_ticket" name="job_ticket" required placeholder="123456-A">
+                </div>
+                
+                <div class="form-group">
+                    <label>Especificações Extras</label>
+                    <textarea id="details" name="details" rows="3" placeholder="Informações de ripagem, cores especiais..."></textarea>
+                </div>
+                
+                <!-- Custom Dropzone -->
+                <div class="dropzone" id="dropzone">
+                    <div id="dropzone-text">Arraste seu PDF de Arte aqui ou clique para buscar</div>
+                    <input type="file" id="pdf_file" name="file" accept=".pdf" style="display: none;" required>
+                    <div id="file-info"></div>
+                </div>
+
+                <div class="progress-bar-container" id="progress-container">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Criar O.S & Enviar p/ GMG</button>
+            </form>
+
+            <div class="log-box" id="log-box"></div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script src="/static/main.js?v=4"></script>
+    
+    <script>
+        // Dropzone Logic
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('pdf_file');
+        const fileInfo = document.getElementById('file-info');
+        const dropzoneText = document.getElementById('dropzone-text');
+
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('active');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('active');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('active');
+            if(e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                updateFileInfo();
+            }
+        });
+
+        fileInput.addEventListener('change', updateFileInfo);
+
+        function updateFileInfo() {
+            if(fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                fileInfo.innerText = `📄 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                dropzoneText.style.display = 'none';
+            }
+        }
+
+        // Form Submit via AJAX (Fetch API)
+        const form = document.getElementById('os-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const logBox = document.getElementById('log-box');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if(!fileInput.files.length) {
+                alert("Por favor, anexe o PDF.");
+                return;
+            }
+
+            // UI Preparing to send
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Conectando ao Nucleus ERP...";
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '20%';
+            logBox.style.display = 'none';
+
+            // Gather Data
+            const formData = new FormData();
+            formData.append("client_name", document.getElementById('client_name').value);
+            formData.append("job_ticket", document.getElementById('job_ticket').value);
+            formData.append("details", document.getElementById('details').value);
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                // Simulate HTTP upload progression visually
+                setTimeout(() => progressBar.style.width = '60%', 1000);
+                setTimeout(() => submitBtn.innerText = "Transferindo para GMG e Esko...", 1500);
+                setTimeout(() => progressBar.style.width = '90%', 2000);
+
+                const response = await fetch('/api/create_os', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                progressBar.style.width = '100%';
+                
+                if(response.ok) {
+                    submitBtn.innerText = "Sucesso!";
+                    submitBtn.style.background = "#10b981"; // Green
+                    logBox.style.display = 'block';
+                    logBox.innerHTML = `
+                        > Status: ${result.message}<br>
+                        > O.S. Gerada: <b>${result.data.os_id}</b><br>
+                        > Integração Cores: ${result.data.gmg_sync}<br>
+                        > Automação ESKO: ${result.data.esko_trigger}
+                    `;
+                } else {
+                    alert("Erro interno: " + result.message);
+                    submitBtn.innerText = "Tentar Novamente";
+                    submitBtn.disabled = false;
+                }
+
+            } catch(error) {
+                alert("Erro ao conectar no servidor.");
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Criar O.S & Enviar p/ GMG";
+            }
+        });
+    </script>
+</body>
+</html>
